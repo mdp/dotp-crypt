@@ -45,8 +45,8 @@ exports.getPublicID = function(publicKey){
   var address = new Uint8Array(33)
   var h = new BLAKE2s(1)
   h.update(publicKey)
-  var checkdigit = h.digest()
-  address.set(publicKey)
+  var checkdigit = h.digest()[0]
+  address.set(publicKey,0)
   address[32] = checkdigit
   return Base58.encode(address)
 }
