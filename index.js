@@ -3,10 +3,11 @@ var scrypt = require('scrypt-async')
 var nacl = require('tweetnacl')
 var Base58 = require('bs58')
 var Promise = require('bluebird')
-
+var phrases = require('./src/phrase')
 
 exports.utils = {
   Base58: Base58,
+  Phrases: phrases,
 }
 
 exports.nacl = nacl
@@ -33,14 +34,14 @@ exports.getKeyPair = function(key, salt) {
     var h = new BLAKE2s(32)
     h.update(new Buffer(key,'utf-8'))
     var keyHash = h.digest()
-    scrypt(keyHash, new Buffer(salt,'utf-8'), 17, 8, 32, function(result){
+    scrypt(keyHash, new Buffer(salt,'utf-8'), 12, 8, 32, function(result){
       var kp = nacl.box.keyPair.fromSecretKey(new Uint8Array(result))
       fulfill(kp)
     })
   })
 }
 
-exports.getMiniLockID = function(publicKey){
+exports.getPublicID = function(publicKey){
   var address = new Uint8Array(33)
   var h = new BLAKE2s(1)
   h.update(publicKey)
@@ -50,17 +51,17 @@ exports.getMiniLockID = function(publicKey){
   return Base58.encode(address)
 }
 
-exports.getPublicKeyFromMiniLockID = function(miniLockId) {
-  var addr = Base58.decode(miniLockId)
+exports.getPublicKeyFromPublicID = function(publicID) {
+  var addr = Base58.decode(publicID)
   if (addr.length !== 33) {
-    throw(new Error('Bad MiniLock ID, incorrect length'))
+    throw(new Error('Bad Public ID, incorrect length'))
   }
   var pubKey = new Uint8Array(addr.slice(0,32))
   var h = new BLAKE2s(1)
   h.update(pubKey)
   var checkdigit = h.digest()[0]
   if (checkdigit !== addr[32]) {
-    throw(new Error('Bad MiniLock ID, failed check digit'))
+    throw(new Error('Bad Public ID, failed check digit'))
   }
   return pubKey
 }
@@ -95,7 +96,7 @@ exports.deserializeChallenge = function(challengeB58) {
 }
 
 exports.createChallenge = function(otp, nonce, expiresAt, challengerKeyPair, recipientAddrB58) {
-  var publicKey = exports.getPublicKeyFromMiniLockID(recipientAddrB58)
+  var publicKey = exports.getPublicKeyFromPublicID(recipientAddrB58)
   var box = nacl.box(otp, nonce, publicKey, challengerKeyPair.secretKey)
   return exports.serializeChallenge(expiresAt, publicKey[0], nonce, challengerKeyPair.publicKey, box)
 }
