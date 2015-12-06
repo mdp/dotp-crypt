@@ -1,0 +1,22 @@
+{
+  "name": "dotp-crypt",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "./node_modules/.bin/mocha"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "base64-js": "0.0.8",
+    "blake2s-js": "^1.0.3",
+    "bluebird": "^3.0.6",
+    "bs58": "^3.0.0",
+    "scrypt-async": "^1.2.0",
+    "tweetnacl": "^0.13.2"
+  },
+  "devDependencies": {
+    "mocha": "^2.3.4"
+  }
+}
