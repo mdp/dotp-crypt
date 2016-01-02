@@ -1,21 +1,20 @@
-var BLAKE2s = require('blake2s-js')
-var scrypt = require('scrypt-async')
 var nacl = require('tweetnacl')
 var Base58 = require('bs58')
 var Promise = require('bluebird')
-var phrases = require('./src/phrase')
 
 exports.utils = {
   Base58: Base58,
-  Phrases: phrases,
+  nacl: nacl,
 }
 
 exports.nacl = nacl
 
 function intTo5Bytes(i) {
-  var arr = new Uint8Array(5) // 40 bits for the timestamp
-  arr[0] = 0 // Fails on 2038, hopefully JS handles >32 bit by then
-  arr[1] = i >> 24
+  // 40 bits signed for the timestamp since JS 53 bit precision
+  // Fails on Jan-25-19391
+  var arr = new Uint8Array(5)
+  arr[0] = i >> 32
+  arr[1] = (i >> 24) & 255
   arr[2] = (i >> 16) & 255
   arr[3] = (i >> 8) & 255
   arr[4] = i & 255
@@ -23,29 +22,21 @@ function intTo5Bytes(i) {
 }
 
 function fiveBytesToInt(byteArr) {
-  var i = (byteArr[1] << 24) |
+  var i = (byteArr[0] << 32) |
+    (byteArr[1] << 24) |
     (byteArr[2] << 16) |
     (byteArr[3] << 8) |
     byteArr[4]
   return i
 }
-exports.getKeyPair = function(key, salt) {
-  return new Promise(function(fulfill, reject){
-    var h = new BLAKE2s(32)
-    h.update(new Buffer(key,'utf-8'))
-    var keyHash = h.digest()
-    scrypt(keyHash, new Buffer(salt,'utf-8'), 12, 8, 32, function(result){
-      var kp = nacl.box.keyPair.fromSecretKey(new Uint8Array(result))
-      fulfill(kp)
-    })
-  })
+
+exports.getKeyPair = function(privateKey) {
+  return nacl.box.keyPair.fromSecretKey(privateKey)
 }
 
 exports.getPublicID = function(publicKey){
   var address = new Uint8Array(33)
-  var h = new BLAKE2s(1)
-  h.update(publicKey)
-  var checkdigit = h.digest()[0]
+  var checkdigit = nacl.hash(publicKey)[0]
   address.set(publicKey,0)
   address[32] = checkdigit
   return Base58.encode(address)
@@ -57,9 +48,7 @@ exports.getPublicKeyFromPublicID = function(publicID) {
     throw(new Error('Bad Public ID, incorrect length'))
   }
   var pubKey = new Uint8Array(addr.slice(0,32))
-  var h = new BLAKE2s(1)
-  h.update(pubKey)
-  var checkdigit = h.digest()[0]
+  var checkdigit = nacl.hash(pubKey)[0]
   if (checkdigit !== addr[32]) {
     throw(new Error('Bad Public ID, failed check digit'))
   }
@@ -74,7 +63,7 @@ exports.decryptChallenge = function(challenge, secretKey) {
 exports.serializeChallenge = function(expiresAt, recPubKeyFirstByte, nonce, challengerPub, box) {
   var challenge = new Uint8Array(1+5+1+24+32+box.length)
   var expiresAtArr = intTo5Bytes(expiresAt)
-  challenge[0] = 1 // Version
+  challenge[0] = 0 // Version
   challenge.set(expiresAtArr, 1)
   challenge[6] = recPubKeyFirstByte
   challenge.set(nonce, 7)

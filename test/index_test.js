@@ -2,19 +2,6 @@ var dotpCrypt = require('../index.js')
 var assert = require('assert')
 var Promise = require('bluebird')
 
-describe('KeyPair generation', function() {
-  var passphrase = 'This passphrase is supposed to be good enough for miniLock. :-)'
-  var salt = 'miniLockScrypt..'
-  it('should match the MiniLock impl', function (done) {
-    dotpCrypt.getKeyPair(passphrase, salt)
-    .then(function(kp){
-      //assert.equal(dotpCrypt.utils.Base58.encode(kp.publicKey), 'EWVHJniXUFNBC9RmXe45c8bqgiAEDoL3Qojy2hKt4c4e')
-      //assert.equal(dotpCrypt.getMiniLockID(kp.publicKey), '22d9pyWnHVGQTzCCKYEYbL4YmtGfjMVV3e5JeJUzLNum8A')
-      done()
-    })
-  });
-});
-
 describe('The challenge byte array', function() {
   var nonce = [189, 70, 242, 241, 234, 4, 215, 66, 27, 160, 95, 160, 95, 61, 44, 45, 132, 254, 215, 227, 34, 155, 243, 1]
   var senderPublicKey = [245, 245, 220, 62, 205, 52, 252, 99, 237, 244, 114, 248, 154, 44, 77, 2, 156, 228, 111, 147, 149, 187, 54, 237, 113, 30, 152, 58, 253, 116, 83, 196]
