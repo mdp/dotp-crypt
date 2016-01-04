@@ -1,12 +1,16 @@
 {
   "name": "dotp-crypt",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "",
   "main": "index.js",
   "scripts": {
     "test": "./node_modules/.bin/mocha"
   },
-  "author": "",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mdp/dotp-crypt.git"
+  },
+  "author": "Mark Percival <m@mdp.im>",
   "license": "MIT",
   "dependencies": {
     "bluebird": "^3.0.6",

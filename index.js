@@ -2,6 +2,8 @@ var nacl = require('tweetnacl')
 var Base58 = require('bs58')
 var Promise = require('bluebird')
 
+const VERSION = 0
+
 exports.utils = {
   Base58: Base58,
   nacl: nacl,
@@ -63,7 +65,7 @@ exports.decryptChallenge = function(challenge, secretKey) {
 exports.serializeChallenge = function(expiresAt, recPubKeyFirstByte, nonce, challengerPub, box) {
   var challenge = new Uint8Array(1+5+1+24+32+box.length)
   var expiresAtArr = intTo5Bytes(expiresAt)
-  challenge[0] = 0 // Version
+  challenge[0] = VERSION
   challenge.set(expiresAtArr, 1)
   challenge[6] = recPubKeyFirstByte
   challenge.set(nonce, 7)
@@ -74,6 +76,9 @@ exports.serializeChallenge = function(expiresAt, recPubKeyFirstByte, nonce, chal
 
 exports.deserializeChallenge = function(challengeB58) {
   var challenge = new Uint8Array(Base58.decode(challengeB58))
+  if (challenge[0] > VERSION) {
+    throw(new Error('Unsupported version:', challenge[0]))
+  }
   return {
     version: challenge[0],
     expiresAt: fiveBytesToInt(challenge.slice(1,6)),
