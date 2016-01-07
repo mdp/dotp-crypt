@@ -49,7 +49,7 @@ exports.getPublicKeyFromPublicID = function(publicID) {
   if (addr.length !== 33) {
     throw(new Error('Bad Public ID, incorrect length'))
   }
-  var pubKey = new Uint8Array(addr.slice(0,32))
+  var pubKey = new Uint8Array(addr.subarray(0,32))
   var checkdigit = nacl.hash(pubKey)[0]
   if (checkdigit !== addr[32]) {
     throw(new Error('Bad Public ID, failed check digit'))
@@ -81,11 +81,11 @@ exports.deserializeChallenge = function(challengeB58) {
   }
   return {
     version: challenge[0],
-    expiresAt: fiveBytesToInt(challenge.slice(1,6)),
+    expiresAt: fiveBytesToInt(challenge.subarray(1,6)),
     publicKeyFirstByte: challenge[6],
-    nonce: challenge.slice(7,31),
-    challengerPublicKey: challenge.slice(31,63),
-    box: challenge.slice(63),
+    nonce: challenge.subarray(7,31),
+    challengerPublicKey: challenge.subarray(31,63),
+    box: challenge.subarray(63),
   }
 }
 
@@ -106,8 +106,8 @@ exports.createChallengeResponseToken = function(data, nonce, secretKey) {
 
 exports.decodeChallengeResponseToken = function(responseToken, secretKey) {
   var token = new Uint8Array(Base58.decode(responseToken))
-  var nonce = token.slice(0,24)
-  var box = token.slice(24)
+  var nonce = token.subarray(0,24)
+  var box = token.subarray(24)
   var decrypted = nacl.secretbox.open(box, nonce, secretKey)
   return  {
     data: JSON.parse(new Buffer(decrypted).toString()),
