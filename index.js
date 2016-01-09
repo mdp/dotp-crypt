@@ -45,11 +45,11 @@ exports.getPublicID = function(publicKey){
 }
 
 exports.getPublicKeyFromPublicID = function(publicID) {
-  var addr = Base58.decode(publicID)
+  var addr = new Uint8Array(Base58.decode(publicID))
   if (addr.length !== 33) {
     throw(new Error('Bad Public ID, incorrect length'))
   }
-  var pubKey = new Uint8Array(addr.subarray(0,32))
+  var pubKey = addr.subarray(0,32)
   var checkdigit = nacl.hash(pubKey)[0]
   if (checkdigit !== addr[32]) {
     throw(new Error('Bad Public ID, failed check digit'))
