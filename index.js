@@ -1,8 +1,7 @@
 var nacl = require('tweetnacl')
 var Base58 = require('bs58')
-var crypto = require('crypto')
 
-const VERSION = 0
+var VERSION = 0
 
 exports.utils = {
   Base58: Base58,
@@ -45,9 +44,7 @@ exports.getKeyPair = function(privateKey) {
 
 exports.getPublicID = function(publicKey){
   var address = new Uint8Array(33)
-  var hash = crypto.createHash('sha512')
-  hash.update(publicKey)
-  var digest = hash.digest()
+  var digest = nacl.hash(publicKey)
   var checkdigit = digest[0]
   address.set(publicKey,0)
   address[32] = checkdigit
@@ -55,9 +52,7 @@ exports.getPublicID = function(publicKey){
 }
 
 exports.deriveKeyPair = function(input) {
-  var hash = crypto.createHash('sha512')
-  hash.update(input)
-  var digest = hash.digest()
+  var digest = nacl.hash(new Buffer(input))
   var privateKey = toArrayBuffer(digest.slice(0,32))
   return exports.getKeyPair(privateKey)
 }
