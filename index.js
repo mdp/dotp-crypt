@@ -1,6 +1,6 @@
 var nacl = require('tweetnacl')
 var Base58 = require('bs58')
-var Promise = require('bluebird')
+var crypto = require('crypto')
 
 const VERSION = 0
 
@@ -12,10 +12,8 @@ exports.utils = {
 exports.nacl = nacl
 
 function intTo5Bytes(i) {
-  // 40 bits signed for the timestamp since JS 53 bit precision
-  // Fails on Jan-25-19391
   var arr = new Uint8Array(5)
-  arr[0] = i >> 32
+  arr[0] = Math.floor(i/Math.pow(2,32)) //JS does bitshifts on 32 bit ints
   arr[1] = (i >> 24) & 255
   arr[2] = (i >> 16) & 255
   arr[3] = (i >> 8) & 255
@@ -24,12 +22,21 @@ function intTo5Bytes(i) {
 }
 
 function fiveBytesToInt(byteArr) {
-  var i = (byteArr[0] << 32) |
+  var i = i * Math.pow(2,32) |
     (byteArr[1] << 24) |
     (byteArr[2] << 16) |
     (byteArr[3] << 8) |
     byteArr[4]
   return i
+}
+
+function toArrayBuffer(buffer) {
+    var ab = new ArrayBuffer(buffer.length);
+    var view = new Uint8Array(ab);
+    for (var i = 0; i < buffer.length; ++i) {
+        view[i] = buffer[i];
+    }
+    return view;
 }
 
 exports.getKeyPair = function(privateKey) {
@@ -38,10 +45,21 @@ exports.getKeyPair = function(privateKey) {
 
 exports.getPublicID = function(publicKey){
   var address = new Uint8Array(33)
-  var checkdigit = nacl.hash(publicKey)[0]
+  var hash = crypto.createHash('sha512')
+  hash.update(publicKey)
+  var digest = hash.digest()
+  var checkdigit = digest[0]
   address.set(publicKey,0)
   address[32] = checkdigit
   return Base58.encode(address)
+}
+
+exports.deriveKeyPair = function(input) {
+  var hash = crypto.createHash('sha512')
+  hash.update(input)
+  var digest = hash.digest()
+  var privateKey = toArrayBuffer(digest.slice(0,32))
+  return exports.getKeyPair(privateKey)
 }
 
 exports.getPublicKeyFromPublicID = function(publicID) {
@@ -62,7 +80,7 @@ exports.decryptChallenge = function(challenge, secretKey) {
   return nacl.box.open(c.box, c.nonce, c.challengerPublicKey, secretKey)
 }
 
-exports.serializeChallenge = function(expiresAt, recPubKeyFirstByte, nonce, challengerPub, box) {
+exports.buildChallenge = function(expiresAt, recPubKeyFirstByte, nonce, challengerPub, box) {
   var challenge = new Uint8Array(1+5+1+24+32+box.length)
   var expiresAtArr = intTo5Bytes(expiresAt)
   challenge[0] = VERSION
@@ -71,7 +89,12 @@ exports.serializeChallenge = function(expiresAt, recPubKeyFirstByte, nonce, chal
   challenge.set(nonce, 7)
   challenge.set(challengerPub, 31)
   challenge.set(box, 63)
-  return Base58.encode(challenge)
+  return challenge
+}
+
+exports.serializeChallenge = function(expiresAt, recPubKeyFirstByte, nonce, challengerPub, box) {
+  var chalBytes = exports.buildChallenge(expiresAt, recPubKeyFirstByte, nonce, challengerPub, box)
+  return Base58.encode(chalBytes)
 }
 
 exports.deserializeChallenge = function(challengeB58) {
