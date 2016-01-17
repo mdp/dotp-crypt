@@ -1,6 +1,6 @@
 {
   "name": "dotp-crypt",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -13,10 +13,11 @@
   "author": "Mark Percival <m@mdp.im>",
   "license": "MIT",
   "dependencies": {
-    "bs58": "^3.0.0",
-    "tweetnacl": "^0.13.2"
+    "bs58": "^3.0.0"
   },
   "devDependencies": {
-    "mocha": "^2.3.4"
+    "bluebird": "^3.1.1",
+    "mocha": "^2.3.4",
+    "tweetnacl": "^0.13.3"
   }
 }

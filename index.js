@@ -1,4 +1,4 @@
-var nacl = require('tweetnacl')
+var nacl = require('./lib/tweetnacl-fast.js')
 var Base58 = require('bs58')
 
 var VERSION = 0
