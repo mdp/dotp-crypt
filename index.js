@@ -1,4 +1,5 @@
 var nacl = require('./lib/tweetnacl-fast.js')
+var Buffer = require('buffer').Buffer
 var Base58 = require('bs58')
 
 var VERSION = 0
@@ -53,7 +54,7 @@ exports.getPublicID = function(publicKey){
 
 exports.deriveKeyPair = function(input) {
   var digest = nacl.hash(new Buffer(input))
-  var privateKey = toArrayBuffer(digest.slice(0,32))
+  var privateKey = toArrayBuffer(digest.subarray(0,32))
   return exports.getKeyPair(privateKey)
 }
 
