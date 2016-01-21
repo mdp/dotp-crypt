@@ -11,6 +11,12 @@ exports.utils = {
 
 exports.nacl = nacl
 
+func zeroNonce() {
+  var nonce = new Uint8Array(24)
+  for (var i = 0; i < 24; i++) { nonce[i] = 0 }
+  return nonce
+}
+
 function toArrayBuffer(buffer) {
     var ab = new ArrayBuffer(buffer.length);
     var view = new Uint8Array(ab);
@@ -59,7 +65,7 @@ exports.getPublicKeyFromPublicID = function(publicID) {
 
 exports.decryptChallenge = function(challenge, secretKey) {
   var c = exports.deserializeChallenge(challenge)
-  var nonce = new Uint8Array(24).fill(0)
+  var nonce = zeroNonce()
   return nacl.box.open(c.box, nonce, c.challengerPublicKey, secretKey)
 }
 
@@ -92,7 +98,7 @@ exports.deserializeChallenge = function(challengeB58) {
 
 exports.createChallenge = function(otp, challengerKeyPair, recipientAddrB58) {
   var publicKey = exports.getPublicKeyFromPublicID(recipientAddrB58)
-  var nonce = new Uint8Array(24).fill(0)
+  var nonce = zeroNonce()
   var box = nacl.box(otp, nonce, publicKey, challengerKeyPair.secretKey)
   return exports.serializeChallenge(publicKey[0], challengerKeyPair.publicKey, box)
 }
