@@ -11,7 +11,7 @@ exports.utils = {
 
 exports.nacl = nacl
 
-func zeroNonce() {
+function zeroNonce() {
   var nonce = new Uint8Array(24)
   for (var i = 0; i < 24; i++) { nonce[i] = 0 }
   return nonce
