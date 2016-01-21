@@ -11,25 +11,6 @@ exports.utils = {
 
 exports.nacl = nacl
 
-function intTo5Bytes(i) {
-  var arr = new Uint8Array(5)
-  arr[0] = Math.floor(i/Math.pow(2,32)) //JS does bitshifts on 32 bit ints
-  arr[1] = (i >> 24) & 255
-  arr[2] = (i >> 16) & 255
-  arr[3] = (i >> 8) & 255
-  arr[4] = i & 255
-  return arr
-}
-
-function fiveBytesToInt(byteArr) {
-  var i = i * Math.pow(2,32) |
-    (byteArr[1] << 24) |
-    (byteArr[2] << 16) |
-    (byteArr[3] << 8) |
-    byteArr[4]
-  return i
-}
-
 function toArrayBuffer(buffer) {
     var ab = new ArrayBuffer(buffer.length);
     var view = new Uint8Array(ab);
@@ -50,6 +31,11 @@ exports.getPublicID = function(publicKey){
   address.set(publicKey,0)
   address[32] = checkdigit
   return Base58.encode(address)
+}
+
+exports.getRandomKeyPair = function(randomArray) {
+  var privateKey = new Uint8Array(randomArray)
+  return exports.getKeyPair(privateKey)
 }
 
 exports.deriveKeyPair = function(input) {
@@ -73,23 +59,21 @@ exports.getPublicKeyFromPublicID = function(publicID) {
 
 exports.decryptChallenge = function(challenge, secretKey) {
   var c = exports.deserializeChallenge(challenge)
-  return nacl.box.open(c.box, c.nonce, c.challengerPublicKey, secretKey)
+  var nonce = new Uint8Array(24).fill(0)
+  return nacl.box.open(c.box, nonce, c.challengerPublicKey, secretKey)
 }
 
-exports.buildChallenge = function(expiresAt, recPubKeyFirstByte, nonce, challengerPub, box) {
-  var challenge = new Uint8Array(1+5+1+24+32+box.length)
-  var expiresAtArr = intTo5Bytes(expiresAt)
+exports.buildChallenge = function(recPubKeyFirstByte, challengerPub, box) {
+  var challenge = new Uint8Array(1+1+32+box.length)
   challenge[0] = VERSION
-  challenge.set(expiresAtArr, 1)
-  challenge[6] = recPubKeyFirstByte
-  challenge.set(nonce, 7)
-  challenge.set(challengerPub, 31)
-  challenge.set(box, 63)
+  challenge[1] = recPubKeyFirstByte
+  challenge.set(challengerPub, 2)
+  challenge.set(box, 34)
   return challenge
 }
 
-exports.serializeChallenge = function(expiresAt, recPubKeyFirstByte, nonce, challengerPub, box) {
-  var chalBytes = exports.buildChallenge(expiresAt, recPubKeyFirstByte, nonce, challengerPub, box)
+exports.serializeChallenge = function(recPubKeyFirstByte, challengerPub, box) {
+  var chalBytes = exports.buildChallenge(recPubKeyFirstByte, challengerPub, box)
   return Base58.encode(chalBytes)
 }
 
@@ -100,36 +84,16 @@ exports.deserializeChallenge = function(challengeB58) {
   }
   return {
     version: challenge[0],
-    expiresAt: fiveBytesToInt(challenge.subarray(1,6)),
-    publicKeyFirstByte: challenge[6],
-    nonce: challenge.subarray(7,31),
-    challengerPublicKey: challenge.subarray(31,63),
-    box: challenge.subarray(63),
+    publicKeyFirstByte: challenge[1],
+    challengerPublicKey: challenge.subarray(2,34),
+    box: challenge.subarray(34),
   }
 }
 
-exports.createChallenge = function(otp, nonce, expiresAt, challengerKeyPair, recipientAddrB58) {
+exports.createChallenge = function(otp, challengerKeyPair, recipientAddrB58) {
   var publicKey = exports.getPublicKeyFromPublicID(recipientAddrB58)
+  var nonce = new Uint8Array(24).fill(0)
   var box = nacl.box(otp, nonce, publicKey, challengerKeyPair.secretKey)
-  return exports.serializeChallenge(expiresAt, publicKey[0], nonce, challengerKeyPair.publicKey, box)
+  return exports.serializeChallenge(publicKey[0], challengerKeyPair.publicKey, box)
 }
 
-exports.createChallengeResponseToken = function(data, nonce, secretKey) {
-  var msg = new Uint8Array(new Buffer(JSON.stringify(data)))
-  var secretBox = nacl.secretbox(msg, nonce, secretKey)
-  var token = new Uint8Array(24+secretBox.length)
-  token.set(nonce, 0)
-  token.set(secretBox, 24)
-  return Base58.encode(token)
-}
-
-exports.decodeChallengeResponseToken = function(responseToken, secretKey) {
-  var token = new Uint8Array(Base58.decode(responseToken))
-  var nonce = token.subarray(0,24)
-  var box = token.subarray(24)
-  var decrypted = nacl.secretbox.open(box, nonce, secretKey)
-  return  {
-    data: JSON.parse(new Buffer(decrypted).toString()),
-    nonce: nonce,
-  }
-}
