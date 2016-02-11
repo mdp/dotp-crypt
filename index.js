@@ -1,5 +1,5 @@
-var nacl = require('./lib/tweetnacl-fast.js')
-var Buffer = require('buffer').Buffer
+var nacl = require('./lib/tweetnacl-fast')
+var blake2 = require('blakejs')
 var Base58 = require('bs58')
 
 var VERSION = 0
@@ -7,14 +7,7 @@ var VERSION = 0
 exports.utils = {
   Base58: Base58,
   nacl: nacl,
-}
-
-exports.nacl = nacl
-
-function zeroNonce() {
-  var nonce = new Uint8Array(24)
-  for (var i = 0; i < 24; i++) { nonce[i] = 0 }
-  return nonce
+  blake2: blake2
 }
 
 function toArrayBuffer(buffer) {
@@ -26,8 +19,32 @@ function toArrayBuffer(buffer) {
     return view;
 }
 
-exports.getKeyPair = function(privateKey) {
-  return nacl.box.keyPair.fromSecretKey(privateKey)
+function crypto_box_seal_open(enc, publicKey, secretKey){
+  var ephemeralPk = enc.subarray(0,32)
+  var box = enc.subarray(32)
+  var ctx = blake2.blake2b_init(24)
+  blake2.blake2b_update(ctx, ephemeralPk)
+  blake2.blake2b_update(ctx, publicKey)
+  var nonce = blake2.blake2b_final(ctx)
+  var result = nacl.box.open(box, nonce, ephemeralPk, secretKey)
+  return result
+}
+
+function crypto_box_seal(otp, recipienPublicKey, ephemeralSecretKey){
+  var ephemeralKp = nacl.box.keyPair.fromSecretKey(ephemeralSecretKey)
+  var ctx = blake2.blake2b_init(24)
+  blake2.blake2b_update(ctx, ephemeralKp.publicKey)
+  blake2.blake2b_update(ctx, recipienPublicKey)
+  var nonce = blake2.blake2b_final(ctx)
+  var box = nacl.box(otp, nonce, recipienPublicKey, ephemeralKp.secretKey)
+  var sealedBox = new Uint8Array(32+box.length)
+  sealedBox.set(ephemeralKp.publicKey, 0)
+  sealedBox.set(box, 32)
+  return sealedBox
+}
+
+exports.getKeyPair = function(secretKey) {
+  return nacl.box.keyPair.fromSecretKey(secretKey)
 }
 
 exports.getPublicID = function(publicKey){
@@ -45,9 +62,15 @@ exports.getRandomKeyPair = function(randomArray) {
 }
 
 exports.deriveKeyPair = function(input) {
-  var digest = nacl.hash(new Buffer(input))
-  var privateKey = toArrayBuffer(digest.subarray(0,32))
-  return exports.getKeyPair(privateKey)
+  var secretKey
+  if (typeof input === 'string') {
+    var digest = nacl.hash(new Buffer(input))
+    secretKey = toArrayBuffer(digest).subarray(0,32)
+  } else {
+    var digest = nacl.hash(input)
+    secretKey = toArrayBuffer(digest).subarray(0,32)
+  }
+  return exports.getKeyPair(secretKey)
 }
 
 exports.getPublicKeyFromPublicID = function(publicID) {
@@ -63,23 +86,21 @@ exports.getPublicKeyFromPublicID = function(publicID) {
   return pubKey
 }
 
-exports.decryptChallenge = function(challenge, secretKey) {
+exports.decryptChallenge = function(challenge, keyPair) {
   var c = exports.deserializeChallenge(challenge)
-  var nonce = zeroNonce()
-  return nacl.box.open(c.box, nonce, c.challengerPublicKey, secretKey)
+  return crypto_box_seal_open(c.box, keyPair.publicKey, keyPair.secretKey)
 }
 
-exports.buildChallenge = function(recPubKeyFirstByte, challengerPub, box) {
-  var challenge = new Uint8Array(1+1+32+box.length)
+exports.buildChallenge = function(recPubKeyFirstByte, box) {
+  var challenge = new Uint8Array(1+1+box.length)
   challenge[0] = VERSION
   challenge[1] = recPubKeyFirstByte
-  challenge.set(challengerPub, 2)
-  challenge.set(box, 34)
+  challenge.set(box, 2)
   return challenge
 }
 
-exports.serializeChallenge = function(recPubKeyFirstByte, challengerPub, box) {
-  var chalBytes = exports.buildChallenge(recPubKeyFirstByte, challengerPub, box)
+exports.serializeChallenge = function(recPubKeyFirstByte, box) {
+  var chalBytes = exports.buildChallenge(recPubKeyFirstByte, box)
   return Base58.encode(chalBytes)
 }
 
@@ -91,15 +112,14 @@ exports.deserializeChallenge = function(challengeB58) {
   return {
     version: challenge[0],
     publicKeyFirstByte: challenge[1],
-    challengerPublicKey: challenge.subarray(2,34),
-    box: challenge.subarray(34),
+    box: challenge.subarray(2),
   }
 }
 
-exports.createChallenge = function(otp, challengerKeyPair, recipientAddrB58) {
+exports.createChallenge = function(otp, recipientAddrB58, randomSeed) {
   var publicKey = exports.getPublicKeyFromPublicID(recipientAddrB58)
-  var nonce = zeroNonce()
-  var box = nacl.box(otp, nonce, publicKey, challengerKeyPair.secretKey)
-  return exports.serializeChallenge(publicKey[0], challengerKeyPair.publicKey, box)
+  var ephemeralKp = nacl.box.keyPair.fromSecretKey(randomSeed)
+  var box = crypto_box_seal(otp, publicKey, ephemeralKp.secretKey)
+  return exports.serializeChallenge(publicKey[0], box)
 }
 
