@@ -4,19 +4,12 @@ var Base58 = require('bs58')
 
 var VERSION = 0
 
+//TODO: @mdp Documents all the public methods
+
 exports.utils = {
   Base58: Base58,
   nacl: nacl,
   blake2: blake2
-}
-
-function toArrayBuffer(buffer) {
-    var ab = new ArrayBuffer(buffer.length);
-    var view = new Uint8Array(ab);
-    for (var i = 0; i < buffer.length; ++i) {
-        view[i] = buffer[i];
-    }
-    return view;
 }
 
 function crypto_box_seal_open(enc, publicKey, secretKey){
@@ -67,11 +60,11 @@ exports.getRandomKeyPair = function(randomArray) {
 exports.deriveKeyPair = function(input) {
   var secretKey
   if (typeof input === 'string') {
-    var digest = nacl.hash(new Buffer(input))
-    secretKey = toArrayBuffer(digest).subarray(0,32)
+    var digest = nacl.hash(nacl.util.decodeUTF8(input))
+    secretKey = digest.subarray(0,32)
   } else {
     var digest = nacl.hash(input)
-    secretKey = toArrayBuffer(digest).subarray(0,32)
+    secretKey = digest.subarray(0,32)
   }
   return exports.getKeyPair(secretKey)
 }
@@ -119,6 +112,7 @@ exports.deserializeChallenge = function(challengeB58) {
   }
 }
 
+// Create a challenge for the recipient
 exports.createChallenge = function(otp, recipientAddrB58, randomSeed) {
   var publicKey = exports.getPublicKeyFromPublicID(recipientAddrB58)
   var ephemeralKp = nacl.box.keyPair.fromSecretKey(randomSeed)
