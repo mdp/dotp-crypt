@@ -113,10 +113,9 @@ exports.deserializeChallenge = function(challengeB58) {
 }
 
 // Create a challenge for the recipient
-exports.createChallenge = function(otp, recipientAddrB58, randomSeed) {
+exports.createChallenge = function(otp, recipientAddrB58, ephemeralSecret) {
   var publicKey = exports.getPublicKeyFromPublicID(recipientAddrB58)
-  var ephemeralKp = nacl.box.keyPair.fromSecretKey(randomSeed)
-  var box = crypto_box_seal(otp, publicKey, ephemeralKp.secretKey)
+  var box = crypto_box_seal(otp, publicKey, ephemeralSecret)
   return exports.serializeChallenge(publicKey[0], box)
 }
 
