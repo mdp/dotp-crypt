@@ -1,5 +1,15 @@
 var dotpCrypt = require('../index.js')
 var assert = require('assert')
+var sodium = require('libsodium-wrappers');
+
+function toHex(arr) {
+  var h = '0123456789abcdef', s = '';
+  for (var i = 0; i< arr.length; i++) {
+    s += h[(arr[i]>>4)&15];
+    s += h[arr[i]&15];
+  }
+  return s;
+}
 
 describe('The challenge byte array', function() {
   var challengerKeyPair = dotpCrypt.deriveKeyPair('ServerSecret')
@@ -41,4 +51,22 @@ describe('Challenge generation and encryption', function() {
     assert.equal(new Buffer(decoded).toString(), 'MYOTP')
   });
 });
+
+// LibSodium.js is a bit difficult to use with React Native at this point
+// TweetNacl only needs a bit of work, so we instead just use it for now.
+describe('Interop with LibSodium', function() {
+  var kp = sodium.crypto_box_keypair()
+  var ephemeralKp = sodium.crypto_box_keypair()
+  it('should be compatible with decryption', function () {
+    var enc = dotpCrypt.crypto_box_seal(new Buffer('foo', 'utf-8'), kp.publicKey, ephemeralKp.privateKey)
+    var result = sodium.crypto_box_seal_open(enc, kp.publicKey, kp.privateKey)
+    assert.equal(new Buffer(result).toString(), 'foo')
+  });
+  it('should be compatible with encryption', function () {
+    var enc = sodium.crypto_box_seal(new Buffer('foo12'), kp.publicKey)
+    var result = dotpCrypt.crypto_box_seal_open(enc, kp.publicKey, kp.privateKey)
+    assert.equal(new Buffer(result).toString(), 'foo12')
+  });
+});
+
 

@@ -43,6 +43,9 @@ function crypto_box_seal(otp, recipienPublicKey, ephemeralSecretKey){
   return sealedBox
 }
 
+exports.crypto_box_seal = crypto_box_seal
+exports.crypto_box_seal_open = crypto_box_seal_open
+
 exports.getKeyPair = function(secretKey) {
   return nacl.box.keyPair.fromSecretKey(secretKey)
 }
