@@ -46,9 +46,10 @@ describe('Challenge generation and encryption', function() {
   var randomSeed = new Uint8Array(32).fill(1)
   it('should create a challenge for the recipient', function () {
     var recipientID = dotpCrypt.getPublicID(recKeyPair.publicKey)
-    var challenge = dotpCrypt.createChallenge(new Buffer('MYOTP','utf-8'), recipientID, randomSeed)
+    var challenge = dotpCrypt.createChallenge('MYOTP', recipientID, 'github.com', randomSeed)
     var decoded = dotpCrypt.decryptChallenge(challenge, recKeyPair)
-    assert.equal(new Buffer(decoded).toString(), 'MYOTP')
+    assert.equal(decoded.otp, 'MYOTP')
+    assert.equal(decoded.id, 'github.com')
   });
 });
 

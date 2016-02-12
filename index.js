@@ -1,6 +1,8 @@
 var nacl = require('./lib/tweetnacl-fast')
 var blake2 = require('blakejs')
 var Base58 = require('bs58')
+var Base32 = require('base32.js')
+var Buffer = require('buffer').Buffer
 
 var VERSION = 0
 
@@ -8,6 +10,7 @@ var VERSION = 0
 
 exports.utils = {
   Base58: Base58,
+  Base32: Base32,
   nacl: nacl,
   blake2: blake2
 }
@@ -34,6 +37,17 @@ function crypto_box_seal(otp, recipienPublicKey, ephemeralSecretKey){
   sealedBox.set(ephemeralKp.publicKey, 0)
   sealedBox.set(box, 32)
   return sealedBox
+}
+
+function QR32Decode(str) {
+  str = str.replace(/\-/g,'=')
+  var decoder = new Base32.Decoder();
+  return decoder.write(str).finalize();
+}
+
+function QR32Encode(bytes) {
+  var encoder = new Base32.Encoder();
+  return encoder.write(bytes).finalize().replace(/\=/g, '-')
 }
 
 exports.crypto_box_seal = crypto_box_seal
@@ -82,11 +96,6 @@ exports.getPublicKeyFromPublicID = function(publicID) {
   return pubKey
 }
 
-exports.decryptChallenge = function(challenge, keyPair) {
-  var c = exports.deserializeChallenge(challenge)
-  return crypto_box_seal_open(c.box, keyPair.publicKey, keyPair.secretKey)
-}
-
 exports.buildChallenge = function(recPubKeyFirstByte, box) {
   var challenge = new Uint8Array(1+1+box.length)
   challenge[0] = VERSION
@@ -97,11 +106,11 @@ exports.buildChallenge = function(recPubKeyFirstByte, box) {
 
 exports.serializeChallenge = function(recPubKeyFirstByte, box) {
   var chalBytes = exports.buildChallenge(recPubKeyFirstByte, box)
-  return Base58.encode(chalBytes)
+  return QR32Encode(chalBytes)
 }
 
-exports.deserializeChallenge = function(challengeB58) {
-  var challenge = new Uint8Array(Base58.decode(challengeB58))
+exports.deserializeChallenge = function(challengeQR32) {
+  var challenge = new Uint8Array(QR32Decode(challengeQR32))
   if (challenge[0] > VERSION) {
     throw(new Error('Unsupported version:', challenge[0]))
   }
@@ -112,10 +121,26 @@ exports.deserializeChallenge = function(challengeB58) {
   }
 }
 
+exports.decryptChallenge = function(challenge, keyPair) {
+  var c = exports.deserializeChallenge(challenge)
+  var decoded = crypto_box_seal_open(c.box, keyPair.publicKey, keyPair.secretKey)
+  if (decoded) {
+    var decodedStr = new Buffer(decoded).toString()
+    var id = decodedStr.substring(0, decodedStr.indexOf('|'))
+    var otp = decodedStr.substring(id.length+1)
+    return {
+      id: id,
+      otp: otp
+    }
+  }
+  return false
+}
+
 // Create a challenge for the recipient
-exports.createChallenge = function(otp, recipientAddrB58, ephemeralSecret) {
+exports.createChallenge = function(otp, recipientAddrB58, challengerId, ephemeralSecret) {
   var publicKey = exports.getPublicKeyFromPublicID(recipientAddrB58)
-  var box = crypto_box_seal(otp, publicKey, ephemeralSecret)
+  var content = challengerId + '|' + otp
+  var box = crypto_box_seal(new Buffer(content), publicKey, ephemeralSecret)
   return exports.serializeChallenge(publicKey[0], box)
 }
 

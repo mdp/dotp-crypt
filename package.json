@@ -1,7 +1,7 @@
 {
   "name": "dotp-crypt",
-  "version": "0.4.1",
-  "description": "",
+  "version": "1.0.0",
+  "description": "The crypto library for dOTP",
   "main": "index.js",
   "scripts": {
     "test": "./node_modules/.bin/mocha"
@@ -13,8 +13,10 @@
   "author": "Mark Percival <m@mdp.im>",
   "license": "MIT",
   "dependencies": {
+    "base32.js": "^0.1.0",
     "blakejs": "^0.4.7",
-    "bs58": "^3.0.0"
+    "bs58": "^3.0.0",
+    "buffer": "^4.4.0"
   },
   "devDependencies": {
     "libsodium-wrappers": "^0.2.12",
